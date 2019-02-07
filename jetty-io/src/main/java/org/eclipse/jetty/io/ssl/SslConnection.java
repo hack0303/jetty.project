@@ -76,7 +76,7 @@ import org.eclipse.jetty.util.thread.Invocable;
  * be called again and make another best effort attempt to progress the connection.
  *
  */
-public class SslConnection extends AbstractConnection
+public class SslConnection extends AbstractConnection implements Connection.UpgradeTo
 {
     private static final Logger LOG = Log.getLogger(SslConnection.class);
     private static final String TLS_1_3 = "TLSv1.3";
@@ -258,6 +258,22 @@ public class SslConnection extends AbstractConnection
     public void setAllowMissingCloseMessage(boolean allowMissingCloseMessage)
     {
         this._allowMissingCloseMessage = allowMissingCloseMessage;
+    }
+
+    private void acquireEncryptedInput()
+    {
+        if (_encryptedInput == null)
+            _encryptedInput = _bufferPool.acquire(_sslEngine.getSession().getPacketBufferSize(), _encryptedDirectBuffers);
+    }
+
+    @Override
+    public void onUpgradeTo(ByteBuffer buffer)
+    {
+        if (BufferUtil.hasContent(buffer))
+        {
+            acquireEncryptedInput();
+            BufferUtil.append(_encryptedInput, buffer);
+        }
     }
 
     @Override
@@ -526,8 +542,7 @@ public class SslConnection extends AbstractConnection
                                     throw new IllegalStateException("Unexpected HandshakeStatus " + status);
                             }
 
-                            if (_encryptedInput == null)
-                                _encryptedInput = _bufferPool.acquire(_sslEngine.getSession().getPacketBufferSize(), _encryptedDirectBuffers);
+                            acquireEncryptedInput();
 
                             // can we use the passed buffer if it is big enough
                             ByteBuffer app_in;
@@ -744,7 +759,7 @@ public class SslConnection extends AbstractConnection
             }
         }
 
-        private void handshakeSucceeded()
+        private void handshakeSucceeded() throws SSLException
         {
             if (_handshake.compareAndSet(Handshake.INITIAL, Handshake.SUCCEEDED))
             {
@@ -1167,7 +1182,7 @@ public class SslConnection extends AbstractConnection
             }
         }
 
-        private void notifyHandshakeSucceeded(SSLEngine sslEngine)
+        private void notifyHandshakeSucceeded(SSLEngine sslEngine) throws SSLException
         {
             SslHandshakeListener.Event event = null;
             for (SslHandshakeListener listener : handshakeListeners)
@@ -1177,6 +1192,10 @@ public class SslConnection extends AbstractConnection
                 try
                 {
                     listener.handshakeSucceeded(event);
+                }
+                catch (SSLException x)
+                {
+                    throw x;
                 }
                 catch (Throwable x)
                 {
