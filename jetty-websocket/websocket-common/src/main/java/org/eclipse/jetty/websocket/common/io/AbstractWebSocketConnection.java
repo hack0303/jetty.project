@@ -25,7 +25,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.eclipse.jetty.io.AbstractConnection;
@@ -117,12 +116,11 @@ public abstract class AbstractWebSocketConnection extends AbstractConnection imp
     private final Generator generator;
     private final Parser parser;
     private final WebSocketPolicy policy;
-    private final AtomicBoolean suspendToken;
+    private final ReadState readState;
     private final FrameFlusher flusher;
     private final String id;
     private WebSocketSession session;
     private List<ExtensionConfig> extensions;
-    private boolean isFilling;
     private ByteBuffer prefillBuffer;
     private ReadMode readMode = ReadMode.PARSE;
     private IOState ioState;
@@ -139,7 +137,7 @@ public abstract class AbstractWebSocketConnection extends AbstractConnection imp
         this.parser = new Parser(policy,bufferPool);
         this.scheduler = scheduler;
         this.extensions = new ArrayList<>();
-        this.suspendToken = new AtomicBoolean(false);
+        this.readState = new ReadState();
         this.ioState = new IOState();
         this.ioState.addListener(this);
         this.flusher = new Flusher(bufferPool,generator,endp);
@@ -294,7 +292,7 @@ public abstract class AbstractWebSocketConnection extends AbstractConnection imp
     @Override
     public boolean isReading()
     {
-        return isFilling;
+        return readState.isReading();
     }
 
     /**
@@ -376,8 +374,6 @@ public abstract class AbstractWebSocketConnection extends AbstractConnection imp
 
         try
         {
-            isFilling = true;
-
             if(readMode == ReadMode.PARSE)
             {
                 readMode = readParse(buffer);
@@ -392,14 +388,10 @@ public abstract class AbstractWebSocketConnection extends AbstractConnection imp
             bufferPool.release(buffer);
         }
 
-        if ((readMode != ReadMode.EOF) && (suspendToken.get() == false))
-        {
+        if (readMode == ReadMode.EOF)
+            readState.eof();
+        else if (!readState.suspend())
             fillInterested();
-        }
-        else
-        {
-            isFilling = false;
-        }
     }
 
     @Override
@@ -581,13 +573,8 @@ public abstract class AbstractWebSocketConnection extends AbstractConnection imp
     @Override
     public void resume()
     {
-        if (suspendToken.getAndSet(false))
-        {
-            if (!isReading())
-            {
-                fillInterested();
-            }
-        }
+        if (readState.resume())
+            fillInterested();
     }
 
     /**
@@ -622,7 +609,7 @@ public abstract class AbstractWebSocketConnection extends AbstractConnection imp
     @Override
     public SuspendToken suspend()
     {
-        suspendToken.set(true);
+        readState.suspending();
         return this;
     }
 
@@ -646,43 +633,6 @@ public abstract class AbstractWebSocketConnection extends AbstractConnection imp
                 getClass().getSimpleName(),
                 hashCode(),
                 ioState,flusher,generator,parser);
-    }
-    
-    @Override
-    public int hashCode()
-    {
-        final int prime = 31;
-        int result = 1;
-
-        EndPoint endp = getEndPoint();
-        if(endp != null)
-        {
-            result = prime * result + endp.getLocalAddress().hashCode();
-            result = prime * result + endp.getRemoteAddress().hashCode();
-        }
-        return result;
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj)
-            return true;
-        if (obj == null)
-            return false;
-        if (getClass() != obj.getClass())
-            return false;
-        AbstractWebSocketConnection other = (AbstractWebSocketConnection)obj;
-        EndPoint endp = getEndPoint();
-        EndPoint otherEndp = other.getEndPoint();
-        if (endp == null)
-        {
-            if (otherEndp != null)
-                return false;
-        }
-        else if (!endp.equals(otherEndp))
-            return false;
-        return true;
     }
 
     /**
