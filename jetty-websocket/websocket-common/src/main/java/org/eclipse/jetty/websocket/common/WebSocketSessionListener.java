@@ -16,33 +16,11 @@
 //  ========================================================================
 //
 
-package org.eclipse.jetty.websocket.api;
+package org.eclipse.jetty.websocket.common;
 
-/**
- * Callback for Write events.
- */
-public interface WriteCallback
+public interface WebSocketSessionListener
 {
-    /*
-     * NOTE: We don't expose org.eclipse.jetty.util.Callback here as that would complicate matters with the WebAppContext's classloader isolation.
-     */
+    void onSessionOpened(WebSocketSession session);
 
-    /**
-     * <p>
-     * Callback invoked when the write fails.
-     * </p>
-     * 
-     * @param x
-     *            the reason for the write failure
-     */
-    void writeFailed(Throwable x);
-
-    /**
-     * <p>
-     * Callback invoked when the write completes.
-     * </p>
-     * 
-     * @see #writeFailed(Throwable)
-     */
-    void writeSuccess();
+    void onSessionClosed(WebSocketSession session);
 }

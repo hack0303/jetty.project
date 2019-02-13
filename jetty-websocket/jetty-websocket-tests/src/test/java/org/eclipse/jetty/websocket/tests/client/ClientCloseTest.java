@@ -24,10 +24,12 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import org.eclipse.jetty.io.Connection;
 import org.eclipse.jetty.io.EndPoint;
 import org.eclipse.jetty.io.EofException;
 import org.eclipse.jetty.server.Server;
@@ -62,14 +64,14 @@ import static java.time.Duration.ofSeconds;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
-import static org.hamcrest.Matchers.anything;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 public class ClientCloseTest
 {
@@ -244,7 +246,7 @@ public class ClientCloseTest
     public void testRemoteDisconnect() throws Exception
     {
         // Set client timeout
-        final int timeout = 1000;
+        final int timeout = 2000;
         client.setMaxIdleTimeout(timeout);
 
         // Client connects
@@ -264,7 +266,7 @@ public class ClientCloseTest
 
             // client reads -1 (EOF)
             // client triggers close event on client ws-endpoint
-            clientSocket.assertReceivedCloseEvent(timeout, is(StatusCode.ABNORMAL),
+            clientSocket.assertReceivedCloseEvent(timeout/2, is(StatusCode.SHUTDOWN),
                     anyOf(
                             containsString("EOF"),
                             containsString("Disconnected")
@@ -328,9 +330,17 @@ public class ClientCloseTest
         final int timeout = 1000;
         client.setMaxIdleTimeout(timeout);
 
-        // TODO: client.addBean(ConnectionListener);
-
         int clientCount = 3;
+        CountDownLatch connectionOnClosedLatch = new CountDownLatch(clientCount);
+        Connection.Listener clientConnectionListener = new Connection.Listener.Adapter() {
+            @Override
+            public void onClosed(Connection connection)
+            {
+                connectionOnClosedLatch.countDown();
+            }
+        };
+        client.addBean(clientConnectionListener);
+
         URI wsUri = WSURI.toWebsocket(server.getURI().resolve("/ws"));
         List<CloseTrackingSocket> clientSockets = new ArrayList<>();
 
@@ -355,11 +365,19 @@ public class ClientCloseTest
             {
                 clientSockets.get(i).assertReceivedCloseEvent(timeout, is(StatusCode.SHUTDOWN), containsString("Shutdown"));
             }
-
-            // TODO: ensure all Sessions are gone. connections are gone. etc. (client and server)
-            // TODO: ensure ConnectionListener onClose is called 3 times
-            client.getOpenSessions().isEmpty();
         });
+
+        // ensure all Sessions are gone. connections are gone. etc. (client and server)
+        // ensure ConnectionListener onClose is called 3 times
+        if(!connectionOnClosedLatch.await(5, SECONDS)) {
+            for(Session session: client.getBeans(Session.class))
+            {
+                LOG.info("{}", session);
+            }
+            fail("oops");
+        }
+//        assertTrue(connectionOnClosedLatch.await(5, SECONDS), "All connections MUST be closed");
+        assertTrue(client.getOpenSessions().isEmpty(), "Client OpenSessions MUST be empty");
     }
 
     @Test

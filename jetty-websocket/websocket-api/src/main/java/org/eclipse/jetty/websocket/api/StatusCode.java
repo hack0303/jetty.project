@@ -173,6 +173,7 @@ public final class StatusCode
                 (statusCode == SERVER_ERROR) ||
                 (statusCode == SERVICE_RESTART) ||
                 (statusCode == TRY_AGAIN_LATER) ||
-                (statusCode == INVALID_UPSTREAM_RESPONSE);
+                (statusCode == INVALID_UPSTREAM_RESPONSE) ||
+                ((statusCode >= 3000) && (statusCode <= 4999));
     }
 }

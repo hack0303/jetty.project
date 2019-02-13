@@ -21,6 +21,7 @@ package org.eclipse.jetty.websocket.common;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -251,7 +252,11 @@ public class WebSocketRemoteEndpoint implements RemoteEndpoint
         lockMsg(MsgType.BLOCKING);
         try
         {
-            connection.getIOState().assertOutputOpen();
+            if (!connection.canWrite())
+            {
+                throw new ClosedChannelException();
+            }
+
             if (LOG.isDebugEnabled())
             {
                 LOG.debug("sendBytes with {}", BufferUtil.toDetailString(data));
@@ -304,10 +309,14 @@ public class WebSocketRemoteEndpoint implements RemoteEndpoint
     {
         try
         {
+            if (!connection.canWrite())
+            {
+                throw new ClosedChannelException();
+            }
+
             BatchMode batchMode = BatchMode.OFF;
             if (frame.isDataFrame())
                 batchMode = getBatchMode();
-            connection.getIOState().assertOutputOpen();
             outgoing.outgoingFrame(frame, callback, batchMode);
         }
         catch (IOException e)

@@ -18,11 +18,6 @@
 
 package org.eclipse.jetty.websocket.common.io;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.instanceOf;
-import static org.junit.jupiter.api.Assertions.*;
-
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.WritePendingException;
@@ -48,6 +43,13 @@ import org.eclipse.jetty.websocket.common.Parser;
 import org.eclipse.jetty.websocket.common.WebSocketFrame;
 import org.eclipse.jetty.websocket.common.frames.TextFrame;
 import org.junit.jupiter.api.Test;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class FrameFlusherTest
 {
@@ -140,25 +142,18 @@ public class FrameFlusherTest
         });
 
         serverTask.get();
-        System.out.printf("Received: %,d frames / %,d errors%n", endPoint.incomingFrames.size(), endPoint.incomingErrors.size());
+        System.out.printf("Received: %,d frames%n", endPoint.incomingFrames.size());
     }
 
     public static class CapturingEndPoint extends MockEndPoint implements IncomingFrames
     {
         public Parser parser;
         public LinkedBlockingQueue<Frame> incomingFrames = new LinkedBlockingQueue<>();
-        public LinkedBlockingQueue<Throwable> incomingErrors = new LinkedBlockingQueue<>();
 
         public CapturingEndPoint(WebSocketPolicy policy, ByteBufferPool bufferPool)
         {
             parser = new Parser(policy, bufferPool);
             parser.setIncomingFramesHandler(this);
-        }
-
-        @Override
-        public void incomingError(Throwable cause)
-        {
-            incomingErrors.offer(cause);
         }
 
         @Override

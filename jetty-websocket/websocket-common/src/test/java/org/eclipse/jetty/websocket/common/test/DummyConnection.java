@@ -22,6 +22,7 @@ import java.net.InetSocketAddress;
 import java.util.concurrent.Executor;
 
 import org.eclipse.jetty.io.ByteBufferPool;
+import org.eclipse.jetty.util.Callback;
 import org.eclipse.jetty.util.log.Log;
 import org.eclipse.jetty.util.log.Logger;
 import org.eclipse.jetty.websocket.api.BatchMode;
@@ -33,16 +34,13 @@ import org.eclipse.jetty.websocket.api.extensions.IncomingFrames;
 import org.eclipse.jetty.websocket.common.CloseInfo;
 import org.eclipse.jetty.websocket.common.LogicalConnection;
 import org.eclipse.jetty.websocket.common.WebSocketSession;
-import org.eclipse.jetty.websocket.common.io.IOState;
 
 public class DummyConnection implements LogicalConnection
 {
     private static final Logger LOG = Log.getLogger(DummyConnection.class);
-    private IOState iostate;
 
     public DummyConnection()
     {
-        this.iostate = new IOState();
     }
 
     @Override
@@ -51,8 +49,45 @@ public class DummyConnection implements LogicalConnection
     }
 
     @Override
-    public void onLocalClose(CloseInfo close)
+    public boolean canRead()
     {
+        return false;
+    }
+
+    @Override
+    public boolean canWrite()
+    {
+        return false;
+    }
+
+    @Override
+    public void close(Throwable cause)
+    {
+
+    }
+
+    @Override
+    public void close(CloseInfo closeInfo, Callback callback)
+    {
+
+    }
+
+    @Override
+    public boolean opened()
+    {
+        return false;
+    }
+
+    @Override
+    public boolean opening()
+    {
+        return false;
+    }
+
+    @Override
+    public void remoteClose(CloseInfo close)
+    {
+
     }
 
     @Override
@@ -82,12 +117,6 @@ public class DummyConnection implements LogicalConnection
     public long getIdleTimeout()
     {
         return 0;
-    }
-
-    @Override
-    public IOState getIOState()
-    {
-        return this.iostate;
     }
 
     @Override

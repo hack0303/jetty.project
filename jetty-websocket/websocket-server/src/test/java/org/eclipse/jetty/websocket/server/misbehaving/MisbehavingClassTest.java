@@ -18,11 +18,6 @@
 
 package org.eclipse.jetty.websocket.server.misbehaving;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.hamcrest.Matchers.instanceOf;
-import static org.hamcrest.Matchers.is;
-
 import java.nio.channels.ClosedChannelException;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -43,6 +38,11 @@ import org.eclipse.jetty.websocket.server.SimpleServletServer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.is;
 
 /**
  * Testing badly behaving Socket class implementations to get the best
@@ -107,7 +107,7 @@ public class MisbehavingClassTest
 
             // ensure server socket got close event
             assertThat("Close Latch",socket.closeLatch.await(1,TimeUnit.SECONDS),is(true));
-            assertThat("closeStatusCode",socket.closeStatusCode,is(StatusCode.SERVER_ERROR));
+            assertThat("closeStatusCode",socket.closeStatusCode,is(StatusCode.ABNORMAL));
 
             // Validate errors (must be "java.lang.RuntimeException: Intentional Exception from onWebSocketConnect")
             assertThat("socket.onErrors",socket.errors.size(),greaterThanOrEqualTo(1));
@@ -132,7 +132,7 @@ public class MisbehavingClassTest
 
         Future<BlockheadConnection> connFut = request.sendAsync();
 
-        try (StacklessLogging ignore = new StacklessLogging(AnnotatedRuntimeOnConnectSocket.class, WebSocketSession.class);
+        try (StacklessLogging ignore = new StacklessLogging(AnnotatedRuntimeOnConnectSocket.class /*, WebSocketSession.class*/);
              BlockheadConnection clientConn = connFut.get(Timeouts.CONNECT, Timeouts.CONNECT_UNIT))
         {
             LinkedBlockingQueue<WebSocketFrame> frames = clientConn.getFrameQueue();
@@ -145,7 +145,7 @@ public class MisbehavingClassTest
 
             // ensure server socket got close event
             assertThat("Close Latch",socket.closeLatch.await(1,TimeUnit.SECONDS),is(true));
-            assertThat("closeStatusCode",socket.closeStatusCode,is(StatusCode.SERVER_ERROR));
+            assertThat("closeStatusCode",socket.closeStatusCode,is(StatusCode.ABNORMAL));
 
             // Validate errors (must be "java.lang.RuntimeException: Intentional Exception from onWebSocketConnect")
             assertThat("socket.onErrors",socket.errors.size(),greaterThanOrEqualTo(1));

@@ -22,19 +22,60 @@ import java.net.InetSocketAddress;
 import java.util.concurrent.Executor;
 
 import org.eclipse.jetty.io.ByteBufferPool;
+import org.eclipse.jetty.util.Callback;
 import org.eclipse.jetty.websocket.api.SuspendToken;
 import org.eclipse.jetty.websocket.api.WebSocketPolicy;
 import org.eclipse.jetty.websocket.api.extensions.IncomingFrames;
 import org.eclipse.jetty.websocket.api.extensions.OutgoingFrames;
-import org.eclipse.jetty.websocket.common.io.IOState;
 
 public interface LogicalConnection extends OutgoingFrames, SuspendToken
 {
+    boolean canRead();
+
     /**
-     * Called to indicate a close frame was successfully sent to the remote.
-     * @param close the close details
+     * Test if Connection State allows for writing frames.
+     *
+     * @return true if able to write, false otherwise.
      */
-    void onLocalClose(CloseInfo close);
+    boolean canWrite();
+
+    /**
+     * Close the connection based on the cause.
+     *
+     * @param cause the cause
+     */
+    void close(Throwable cause);
+
+    /**
+     * Request a local close.
+     *
+     * @param closeInfo
+     * @param callback
+     */
+    void close(CloseInfo closeInfo, Callback callback);
+
+    /**
+     * Set the state to opened (the application onOpen() method has been called successfully).
+     * <p>
+     *     Reads from network begin here.
+     * </p>
+     *
+     * @return true if state is OPENED, false otherwise
+     */
+    boolean opened();
+
+    /**
+     * Set the state to upgrade/opening handshake has completed.
+     *
+     * @return true if state is OPENING, false otherwise
+     */
+    boolean opening();
+
+    /**
+     * Report that the Remote Endpoint CLOSE Frame has been received
+     * @param close the close frame details
+     */
+    void remoteClose(CloseInfo close);
 
     /**
      * Terminate the connection (no close frame sent)
@@ -59,13 +100,6 @@ public interface LogicalConnection extends OutgoingFrames, SuspendToken
      * @return the idle timeout in milliseconds
      */
     long getIdleTimeout();
-
-    /**
-     * Get the IOState of the connection.
-     * 
-     * @return the IOState of the connection.
-     */
-    IOState getIOState();
 
     /**
      * Get the local {@link InetSocketAddress} in use for this connection.

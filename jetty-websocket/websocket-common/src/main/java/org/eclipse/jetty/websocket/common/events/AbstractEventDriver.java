@@ -86,17 +86,6 @@ public abstract class AbstractEventDriver extends AbstractLifeCycle implements I
     }
 
     @Override
-    public final void incomingError(Throwable e)
-    {
-        if (LOG.isDebugEnabled())
-        {
-            LOG.debug("incomingError(" + e.getClass().getName() + ")",e);
-        }
-
-        onError(e);
-    }
-
-    @Override
     public void incomingFrame(Frame frame)
     {
         if (LOG.isDebugEnabled())
@@ -118,7 +107,7 @@ public abstract class AbstractEventDriver extends AbstractLifeCycle implements I
                     CloseInfo close = new CloseInfo(closeframe,validate);
 
                     // process handshake
-                    session.getConnection().getIOState().onCloseRemote(close);
+                    session.getConnection().remoteClose(close);
 
                     return;
                 }
@@ -234,8 +223,7 @@ public abstract class AbstractEventDriver extends AbstractLifeCycle implements I
         }
         catch (Throwable t)
         {
-            this.session.notifyError(t);
-            throw t;
+            this.session.close(t);
         }
     }
 
